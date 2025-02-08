@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Cache-Control" content="no-cache">
+<meta http-equiv="Expires" content="-1">
+<title>Secure Chat</title>
+<script>
+let keysalt = "2qr0E:JqV5SL0i6i";
+let ivsalt = "652jF9TpkJkQu?4P";
+let magic = "0123456789";
+function togglepw() {
+   var pwcbox = document.getElementById("showpw");
+   var pwtext = document.getElementById("password");
+   if(pwcbox.checked == true) {
+      pwtext.setAttribute('type', 'text');
+   } else {
+      pwtext.setAttribute('type', 'password');
+   }
+}
+async function getiv(pw) {
+   var menc = new TextEncoder().encode(ivsalt + pw);
+   var mhash = await crypto.subtle.digest('SHA-256', menc);
+   var lhash = new Uint8Array(mhash).slice(0, 16);
+   var hhash = new Uint8Array(mhash).slice(-16);
+   var ahash = new Uint8Array(16);
+   for(let i = 0; i < 16; i++)
+   {
+      ahash[i] = lhash[i] ^ hhash[i];
+   }
+   return ahash;
+}
+async function getkey(pw) {
+   var menc = new TextEncoder().encode(keysalt + pw);
+   var mhash = await crypto.subtle.digest('SHA-256', menc);
+   ahash = new Uint8Array(mhash);
+   return ahash;
+}
+async function msgproc() {
+   var msgin = document.getElementById("inputmsg").value;
+   if(msgin === "" || msgin.length === 0 || msgin === null) {
+      alert("The input cannot be empty.");
+   } else {
+      var msgpw = document.getElementById("password").value;
+      if(msgpw === "" || msgpw.length === 0 || msgpw === null) {
+         alert("The password cannot be empty.");
+      } else {
+         var iv = await getiv(msgpw);
+         var key = await getkey(msgpw);
+         if(document.getElementById('emode').checked)
+         {
+            await getct(msgin, key, iv);
+         }
+         else
+         {
+            await getpt(msgin, key, iv);
+         }
+      }
+   }
+}
+function cpout() {
+   var omsg = document.getElementById("output");
+   omsg.select();
+   omsg.setSelectionRange(0, 99999);
+   navigator.clipboard.writeText(omsg.value);
+   alert("Output copied to clipboard.");
+}
+async function getct(msgin, key, iv) {
+   try {
+      var menc = new TextEncoder().encode(magic + msgin);
+      var aeskey = await crypto.subtle.importKey("raw", key, {name: "AES-CTR", length: 256}, false, ["encrypt", "decrypt"]);
+      var ct = await crypto.subtle.encrypt({name: "AES-CTR", counter: iv, length: 128}, aeskey, menc);
+      var b64 = btoa(String.fromCharCode.apply(null, new Uint8Array(ct)));
+      document.getElementById("output").innerHTML = b64;
+   } catch {
+      document.getElementById("output").innerHTML = "ERROR: Failed to encrypt plaintext.";
+   }
+}
+async function getpt(msgin, key, iv) {
+   try {
+      var ct = atob(msgin);
+      var ctbytes = new Uint8Array(ct.length);
+      for(var i = 0; i < ct.length; i++) { ctbytes[i] = ct.charCodeAt(i); }
+   } catch {
+      document.getElementById("output").innerHTML = "ERROR: Failed to decrypt.  The input does not appear to be valid base64 encoding.";
+   }
+   try {
+      var aeskey = await crypto.subtle.importKey("raw", key, {name: "AES-CTR", length: 256}, false, ["encrypt", "decrypt"]);
+      var pta = await crypto.subtle.decrypt({name: "AES-CTR", counter: iv, length: 128}, aeskey, ctbytes);
+      var td = new TextDecoder();
+      var msgdec = td.decode(new Uint8Array(pta));
+   } catch {
+      document.getElementById("output").innerHTML = "ERROR: Failed to decrypt.  General error.";
+   }
+   if(msgdec.length > magic.length)
+   {
+      hdrchk = msgdec.substring(0, magic.length);
+      decmsg = msgdec.substring(magic.length);
+      if(hdrchk === magic)
+      {
+         document.getElementById("output").innerHTML = decmsg;
+      }
+      else
+      {
+         document.getElementById("output").innerHTML = "ERROR: Failed to decrypt.  Plaintext did not pass integrity check.";
+      }
+   }
+   else
+   {
+      document.getElementById("output").innerHTML = "ERROR: Failed to decrypt.  Plaintext invalid length.";
+   }
+}
+function reset() {
+   location.reload(true);
+}
+</script>
+</head>
+<body bgcolor="FloralWhite">
+<!-- Bill Chaison, https://github.com/billchaison -->
+<font face="arial" color="black" size="4">
+<div style="background-color: HoneyDew"><br>
+<img src="data:image/png;base64, iVBORw0KGgoAAAANSUhEUgAAAGQAAABSCAYAAACiwXHkAAAA0GVYSWZJSSoACAAAAAoAAAEEAAEAAABkAAAAAQEEAAEAAABSAAAAAgEDAAMAAACGAAAAEgEDAAEAAAABAAAAGgEFAAEAAACMAAAAGwEFAAEAAACUAAAAKAEDAAEAAAADAAAAMQECAA0AAACcAAAAMgECABQAAACqAAAAaYcEAAEAAAC+AAAAAAAAAAgACAAIAJ0EAAAZAAAAnQQAABkAAABHSU1QIDIuMTAuMzgAADIwMjU6MDI6MDcgMTA6NTY6NDQAAQABoAMAAQAAAAEAAAAAAAAA+KVtdQAAAYNpQ0NQSUNDIHByb2ZpbGUAAHicfZE9SMNAHMVfU6UiFYd2EHEIUp3solIcaxWKUCHUCq06mFz6BU0MSYqLo+BacPBjserg4qyrg6sgCH6AuAtOii5S4v+SQosYD4778e7e4+4dIDRrTLN6koCm22Y2nRLzhRUx9AoBIUSQwKjMLGNWkjLwHV/3CPD1Ls6z/M/9OQbUosWAgEicZIZpE68TJzZtg/M+cZRVZJX4nHjCpAsSP3Jd8fiNc9llgWdGzVx2jjhKLJa7WOliVjE14mnimKrplC/kPVY5b3HWanXWvid/YbioLy9xneYI0ljAIiSIUFBHFTXYiNOqk2IhS/spH/+w65fIpZCrCkaOeWxAg+z6wf/gd7dWaWrSSwqngN4Xx/kYA0K7QKvhON/HjtM6AYLPwJXe8W80gZlP0hsdLXYEDG4DF9cdTdkDLneAoSdDNmVXCtIUSiXg/Yy+qQBEboH+Va+39j5OH4AcdZW5AQ4OgfEyZa/5vLuvu7d/z7T7+wHByHLGS1veNwAADXhpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+Cjx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IlhNUCBDb3JlIDQuNC4wLUV4aXYyIj4KIDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIKICAgIHhtbG5zOnhtcE1NPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvbW0vIgogICAgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIKICAgIHhtbG5zOkdJTVA9Imh0dHA6Ly93d3cuZ2ltcC5vcmcveG1wLyIKICAgIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIKICAgIHhtbG5zOnRpZmY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vdGlmZi8xLjAvIgogICAgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIgogICB4bXBNTTpEb2N1bWVudElEPSJnaW1wOmRvY2lkOmdpbXA6YWE0NGJjN2EtNWExNi00ZGJiLThmZDktNzE3Y2QzZDhkY2M3IgogICB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOmRmZmQ2NDg2LWEyOGUtNDAwYi1hNTQxLTE2MzJlNjg0OGU2NiIKICAgeG1wTU06T3JpZ2luYWxEb2N1bWVudElEPSJ4bXAuZGlkOmI3ODg5YzFkLTQyMDgtNDAzZS1hNzYxLTI3MTQ5MjkwYjQwMSIKICAgR0lNUDpBUEk9IjIuMCIKICAgR0lNUDpQbGF0Zm9ybT0iTGludXgiCiAgIEdJTVA6VGltZVN0YW1wPSIxNzM4OTU4MjE4MTI1MTI1IgogICBHSU1QOlZlcnNpb249IjIuMTAuMzgiCiAgIGRjOkZvcm1hdD0iaW1hZ2UvcG5nIgogICB0aWZmOk9yaWVudGF0aW9uPSIxIgogICB4bXA6Q3JlYXRvclRvb2w9IkdJTVAgMi4xMCIKICAgeG1wOk1ldGFkYXRhRGF0ZT0iMjAyNTowMjowN1QxMDo1Njo0NC0wOTowMCIKICAgeG1wOk1vZGlmeURhdGU9IjIwMjU6MDI6MDdUMTA6NTY6NDQtMDk6MDAiPgogICA8eG1wTU06SGlzdG9yeT4KICAgIDxyZGY6U2VxPgogICAgIDxyZGY6bGkKICAgICAgc3RFdnQ6YWN0aW9uPSJzYXZlZCIKICAgICAgc3RFdnQ6Y2hhbmdlZD0iLyIKICAgICAgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDo0MTlmYjRkYy0wNjlmLTRmMjctYjNiNS00MDY5NDNjODIxYWQiCiAgICAgIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkdpbXAgMi4xMCAoTGludXgpIgogICAgICBzdEV2dDp3aGVuPSIyMDI1LTAyLTA3VDEwOjU2OjU4LTA5OjAwIi8+CiAgICA8L3JkZjpTZXE+CiAgIDwveG1wTU06SGlzdG9yeT4KICA8L3JkZjpEZXNjcmlwdGlvbj4KIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAKPD94cGFja2V0IGVuZD0idyI/PrvXEI0AAAAGYktHRAD/AP8A/6C9p5MAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAABaSSURBVHja7Z17kN1Vle8/a+3f73e6T3dCXoRMjAGEIAhEvKB4QUVEEBxBR6+ONVHwVkGV18eMzOMO3nJmyhrLOw8fM+N4r48rgzKDckvBGcQHKChweQU0PBICCWAIJIS8092nzzm/vde6f/zOSXeSTiBNJ+muyqo6VZ1fzumzf/u719rf9V1r/1o4bAfUgrskuRs4e+Tih5fAHYuENXfAq5+DkxcLdxocs0b08JQdWEvfAhjc9WJPL9AGfgmvmA8/B4Yi9PWRTcWb7O3tleHhYQfIskwm5SDd8XPPJd3ydYGP7rwKwHPDysa7Hay6OgT0PASbj0GmIiAiou6+CDgXeOXOG51cg4Qsgwh42b1qiC5n+oxf0hrYRLOEUy+GRwKcuhY2TpMp5yFZlmmM8ZPA54CezmWFybS4BNydshzlGQK44ZbYvuVppO8CpFzHrF6BBkyvC48wdUKW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" align="left" hspace="15" vspace="15">
+<b>Use this to encrypt or decrypt sensitive text messages to prevent eavesdropping.</b><br><br>
+You must supply a previously agreed upon password to encrypt or decrypt messages with the other person.  It is <u>not</u> recommended that you share the password with the other party through a text message, as that would defeat the purpose of using encryption.<br><br>
+To <span style="background:PaleGreen;"><b>encrypt</b></span> a message select Encrypt mode, type the text into the input box below, enter your password, then press the Go button.  You can then copy the encrypted output using the Copy Output button and paste it into a text message to send to the recipient.<br><br>
+To <span style="background:PaleGreen;"><b>decrypt</b></span> a message select Decrypt mode, copy the encrypted data from the text message you received and paste it into the input box below, enter your password, then press the Go button.  The plaintext message will appear in the output section.  If you wish you can use the Copy Output button to copy the decrypted text and paste it into another application.
+<br></div><br>
+Select Mode:&nbsp;<input type="radio" id="emode" name="mode" value="Encrypt" checked>Encrypt&nbsp;<input type="radio" id="dmode" name="mode" value="Decrypt">Decrypt<br><br>
+<span style="background:Wheat;"><font face="arial" color="Indigo" size="4"><b>INPUT</b></font></span><br><br>
+<textarea id="inputmsg" name="inputmsg" rows="7" cols="50" style="font-family:courier new;font-size:30px;"></textarea><br><br>
+Password:&nbsp;<input type="text" id="password" name="password" size="25" style="font-family:courier new;font-size:30px;">&nbsp;&nbsp;<input type="checkbox" id="showpw" name="showpw" onclick="togglepw()" checked /><label for="showpw">Show Password</label><br><br>
+<button type="button" id="go4it" name="go4it" onclick="msgproc()"><font face="arial" color="black" size="5"><b>Go</b></font></button><br><br>
+</font>
+<span style="background:Wheat;"><font face="arial" color="Indigo" size="4"><b>OUTPUT</b></font></span><br><br>
+<textarea id="output" name="output" rows="7" cols="50" style="font-family:courier new;font-size:30px;"></textarea><br><br>
+<button type="button" id="copytxt" name="copytxt" onclick="cpout()"><font face="arial" color="black" size="5"><b>Copy Output</b></font></button>
+<br><br><br>
+<center><button type="button" id="reset" name="reset" onclick="reset()"><font face="arial" color="black" size="5"><b>Reset Form</b></font></button></center>
+</body>
+</html>
+
