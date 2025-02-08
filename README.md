@@ -3,7 +3,7 @@ Simple end-to-end encryption/decryption widget for securing SMS text messages.
 
 This is a stand-alone HTML form with embedded Javascript utilizing the Web Crypto API and AES-256-CTR encryption, which allows you to encrypt sensitive information before you send it to a recipient.  All encryption and decryption takes place on your mobile device.  No passwords or keys are transmitted to a server or stored within a messaging app; it is completely self-contained.
 
-Encrypted messages are encoded using Base64 which can easily be sent over SMS text messaging.  The recipient will need to use this same HTML form to decrypt the message.  The sender and recipient will need to use the same password to encrypt and decrypt messages.  You should agree on a shared strong password ahead of time by some other means, and not transmit the password in plaintext to the other party through a text message.
+After the message is encrypted it is then encoded using Base64 which can easily be sent over SMS text messaging.  The recipient will need to use this same HTML form to decrypt the message.  The sender and recipient will need to use the same password to encrypt and decrypt messages.  You should agree on a shared strong password ahead of time by some other means, and not transmit the password in plaintext to the other party through a text message.
 
 **Example screenshots of how to use the SecureChat widget**
 
