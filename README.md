@@ -21,7 +21,7 @@ Recipient decrypts the message by copying it then pasting it into the input fiel
 
 iPhone users have a couple of options:
 
-* Download the raw HTML from the link above to your Files then open it using Edge browser.
+* Download the raw HTML from the link above and save it to your Files then open it using Edge browser.
 * Install the [JS Anywhere](https://apps.apple.com/us/app/javascript-anywhere-jsanywhere/id363452277) app from the App Store then create a new project named Secure Chat.  In the new project delete the default JS, HTML and CSS content, then download the raw HTML from the above link into the HTML section.  Press the play button in the JS Anywhere app to execute the web form.
 
 For Android users:
