@@ -9,7 +9,9 @@ After the message is encrypted it is then encoded using Base64 which can easily 
 
 Sender encrypts the message then copies the output and sends it as a text message to the recipient.
 
-$\textcolor{red}{\textsf{Be sure to double check that the cipher text you paste into your text message is correct.  Some mobile device autocorrect settings will try to capitalize the first letter or convert math symbols to equations.}}$
+$\textcolor{red}{\textsf{Be sure to verify that the cipher text you paste into your text message is correct.}}$<br />
+$\textcolor{red}{\textsf{Some mobile device auto-correct settings will try to capitalize the first letter or}}$<br />
+$\textcolor{red}{\textsf{convert math symbols to equations.}}$<br />
 
 ![alt text](https://raw.githubusercontent.com/billchaison/SecureChat/main/e.png)
 
